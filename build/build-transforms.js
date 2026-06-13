@@ -95,14 +95,18 @@ for (const [name, filePath] of Object.entries(transforms)) {
         }
         
         // Extract the object definition (remove comments, import, and export statements)
-        const cleanContent = content
+        let cleanContent = content
             .replace(/^\/\/.*$/gm, '') // Remove single-line comments
             .replace(/import\s+.*?from\s+['"].*?['"]\s*;?\s*/g, '') // Remove import statements
             .replace(/export default\s*/g, '') // Remove export statement
             .trim();
-        
+
         output += `// ${name} (from ${filePath})\n`;
-        output += `transforms['${name}'] = ${cleanContent}\n\n`;
+        if (/^new BaseTransformer\s*\(/.test(cleanContent)) {
+            output += `transforms['${name}'] = ${cleanContent}\n\n`;
+        } else {
+            output += `transforms['${name}'] = ${cleanContent}\n\n`;
+        }
         
         console.log(`✅ Bundled: ${name} (category: ${category})`);
     } catch (error) {

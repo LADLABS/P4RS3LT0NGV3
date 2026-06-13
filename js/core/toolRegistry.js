@@ -196,6 +196,9 @@ if (typeof MutationTool !== 'undefined') {
 if (typeof PromptCraftTool !== 'undefined') {
     window.toolRegistry.register(new PromptCraftTool());
 }
+if (typeof SpellingAlphabetTool !== 'undefined') {
+    window.toolRegistry.register(new SpellingAlphabetTool());
+}
 if (typeof SplitterTool !== 'undefined') {
     window.toolRegistry.register(new SplitterTool());
 }

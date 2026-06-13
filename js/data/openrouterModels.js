@@ -46,5 +46,6 @@ window.OPENROUTER_MODELS = [
     { id: 'nousresearch/hermes-3-llama-3.1-405b', name: 'Hermes 3 405B', provider: 'Nous' },
     { id: 'perplexity/sonar-deep-research', name: 'Sonar Deep Research', provider: 'Perplexity' },
     { id: 'perplexity/sonar-pro', name: 'Sonar Pro', provider: 'Perplexity' },
+    { id: 'openrouter/free', name: 'Free (auto-pick)', provider: 'OpenRouter' },
     { id: 'openrouter/auto', name: 'Auto (best for price)', provider: 'OpenRouter' }
 ];

@@ -32,6 +32,7 @@ Categories match the Transform tab and the folders under `src/transformers/` (ea
 
 #### **Cipher**
 - **ADFGX Cipher** - WWI ADFGVX-style polybius + column transposition
+- **N7AX Cipher** - ADFGX-style polybius with N7AX coordinates + column transposition
 - **Affine Cipher** - Affine substitution (ax + b mod 26)
 - **Atbash Cipher** - Reverse-alphabet substitution (A↔Z)
 - **Autokey Cipher** - Key stream mixed with plaintext (autokey)
@@ -266,6 +267,14 @@ Tabs appear in **UI order** below. **OpenRouter** (optional or required per tool
 - **Transform chain**: Optionally run transforms on each piece.
 - **Wrapping**: Start/end templates; `{n}` iterator marker; single-line vs multiline copy.
 
+### 🔤 **Spelling Alphabets**
+
+- **Custom ICAO-style alphabets**: One word per letter A–Z, like NATO/ICAO phonetic spelling.
+- **OpenRouter (optional)**: Enter a category/theme and generate a full alphabet; edit any letter before saving.
+- **Manual mode**: No API key required — fill in all 26 letters yourself.
+- **Saved locally**: Alphabets persist in browser `localStorage` as JSON.
+- **Transforms integration**: Each saved alphabet appears on the Transforms page under `custom_spelling`.
+
 ### 💬 **Gibberish**
 
 - **Dictionary mode**: Seeded random gibberish over a configurable character set.
@@ -296,7 +305,7 @@ models
 
 ### 🔑 **OpenRouter API Key Setup**
 
-**AI Translation**, **PromptCraft**, and **Anti-Classifier** require an [OpenRouter](https://openrouter.ai/) API key. **Decoder**’s optional “translate to English” also uses OpenRouter when enabled.
+**AI Translation**, **PromptCraft**, **Anti-Classifier**, and **Spelling Alphabets** (optional generate) require an [OpenRouter](https://openrouter.ai/) API key. **Decoder**’s optional “translate to English” also uses OpenRouter when enabled. The Spelling Alphabets tool works fully without a key if you enter letters manually.
 
 1. Create an account at [openrouter.ai](https://openrouter.ai/)
 2. Generate an API key (starts with `sk-or-...`)

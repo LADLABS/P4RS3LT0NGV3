@@ -13,27 +13,7 @@ class TransformTool extends Tool {
     }
     
     getVueData() {
-        const transforms = (window.transforms && Object.keys(window.transforms).length > 0)
-            ? Object.entries(window.transforms)
-                .filter(([key, transform]) => {
-                    // Filter out transforms that don't have required properties
-                    if (!transform || !transform.name || !transform.func) {
-                        console.warn(`Transform "${key}" is missing required properties (name or func)`, transform);
-                        return false;
-                    }
-                    return true;
-                })
-                .map(([key, transform]) => ({
-                    name: transform.name,
-                    func: transform.func.bind(transform),
-                    preview: transform.preview ? transform.preview.bind(transform) : function() { return '[preview]'; },
-                    reverse: transform.reverse ? transform.reverse.bind(transform) : null,
-                    category: transform.category || 'special',
-                    configurableOptions: transform.configurableOptions || [],
-                    hasConfigurableOptions: Array.isArray(transform.configurableOptions) && transform.configurableOptions.length > 0,
-                    inputKind: transform.inputKind === 'text' ? 'text' : 'textarea'
-                }))
-            : [];
+        const transforms = this.buildTransformsFromWindow();
         
         const categorySet = new Set();
         transforms.forEach(transform => {
@@ -76,6 +56,55 @@ class TransformTool extends Tool {
             transformOptionsModalTransform: null,
             transformOptionsDraft: {}
         };
+    }
+
+    buildTransformsFromWindow() {
+        if (typeof window !== 'undefined' && typeof window.syncCustomSpellingAlphabets === 'function') {
+            window.syncCustomSpellingAlphabets();
+        }
+
+        if (!window.transforms || Object.keys(window.transforms).length === 0) {
+            return [];
+        }
+
+        return Object.entries(window.transforms)
+            .filter(([key, transform]) => {
+                if (!transform || !transform.name || !transform.func) {
+                    console.warn(`Transform "${key}" is missing required properties (name or func)`, transform);
+                    return false;
+                }
+                return true;
+            })
+            .map(([key, transform]) => ({
+                name: transform.name,
+                func: transform.func.bind(transform),
+                preview: transform.preview ? transform.preview.bind(transform) : function() { return '[preview]'; },
+                reverse: transform.reverse ? transform.reverse.bind(transform) : null,
+                category: transform.category || 'special',
+                configurableOptions: transform.configurableOptions || [],
+                hasConfigurableOptions: Array.isArray(transform.configurableOptions) && transform.configurableOptions.length > 0,
+                inputKind: transform.inputKind === 'text' ? 'text' : 'textarea'
+            }));
+    }
+
+    rebuildTransformCategories(transforms) {
+        const categorySet = new Set();
+        transforms.forEach(transform => {
+            if (transform.category) {
+                categorySet.add(transform.category);
+            }
+        });
+
+        const allCategories = Array.from(categorySet);
+        const categoriesWithoutRandomizer = allCategories.filter(c => c !== 'randomizer');
+        const legendCategories = [...categoriesWithoutRandomizer.sort((a, b) => a.localeCompare(b)), 'randomizer'];
+
+        const savedOrder = this.loadCategoryOrder();
+        const sectionCategories = savedOrder && savedOrder.length > 0
+            ? this.mergeCategoryOrder(allCategories, savedOrder)
+            : [...legendCategories];
+
+        return { legendCategories, sectionCategories };
     }
     
     loadTransformOptionPrefs() {
@@ -608,6 +637,23 @@ class TransformTool extends Tool {
                     });
                     this.transformOutput = window.EmojiUtils.joinEmojis(transformedSegments);
                 }
+            },
+            refreshCustomSpellingTransforms: function() {
+                const transformTool = window.toolRegistry && window.toolRegistry.get('transforms');
+                if (!transformTool || typeof transformTool.buildTransformsFromWindow !== 'function') {
+                    return;
+                }
+
+                this.transforms = transformTool.buildTransformsFromWindow();
+                const categories = transformTool.rebuildTransformCategories(this.transforms);
+                this.legendCategories = categories.legendCategories;
+                this.categories = categories.sectionCategories;
+
+                this.$nextTick(() => {
+                    if (typeof this.initializeCategoryNavigation === 'function') {
+                        this.initializeCategoryNavigation();
+                    }
+                });
             },
             initializeCategoryNavigation: function() {
                 this.$nextTick(() => {

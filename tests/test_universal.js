@@ -463,6 +463,11 @@ const limitations = {
         acceptPartial: true,
         normalize: { stripNonLetters: true, stripWhitespace: true }
     },
+    'n7ax': {
+        issues: 'Requires key, only encodes A-Z, removes spaces and punctuation',
+        acceptPartial: true,
+        normalize: { stripNonLetters: true, stripWhitespace: true }
+    },
     'polybius': {
         issues: 'Only encodes A-Z, removes spaces and punctuation',
         acceptPartial: true,

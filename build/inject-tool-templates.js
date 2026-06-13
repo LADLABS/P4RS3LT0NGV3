@@ -21,7 +21,8 @@ const templateFiles = [
     'tokenizer.html',
     'bijection.html',
     'splitter.html',
-    'gibberish.html'
+    'gibberish.html',
+    'spellingalphabet.html'
 ];
 
 

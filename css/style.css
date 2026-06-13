@@ -49,6 +49,8 @@
     --randomizer-color-rgb: 156, 39, 176;
     --case-color: #9575cd;          /* Indigo for case transformations */
     --case-color-rgb: 149, 117, 205;
+    --custom-spelling-color: #ff7043; /* Deep orange for user spelling alphabets */
+    --custom-spelling-color-rgb: 255, 112, 67;
     
     /* Active state gradient end colors */
     --encoding-active-end: #9575cd;
@@ -62,6 +64,7 @@
     --technical-active-end: #26c6da;
     --randomizer-active-end: #ab47bc;
     --case-active-end: #b39ddb;
+    --custom-spelling-active-end: #ff8a65;
     
     /* Spacing scale */
     --spacing-xs: 4px;
@@ -1509,6 +1512,10 @@ body.dark-theme .mobile-tool-dropdown {
     border-left-color: var(--case-color);
 }
 
+.legend-item.transform-category-custom_spelling {
+    border-left-color: var(--custom-spelling-color);
+}
+
 .transform-section:focus-within {
     border-color: var(--accent-color);
     box-shadow: var(--focus-shadow);
@@ -1673,6 +1680,10 @@ body.dark-theme .mobile-tool-dropdown {
 
 .category-title.transform-category-case {
     border-left-color: var(--case-color);
+}
+
+.category-title.transform-category-custom_spelling {
+    border-left-color: var(--custom-spelling-color);
 }
 
 .category-title.transform-category-translate {
@@ -2605,6 +2616,10 @@ button.endsequence-item:hover .endsequence-copy-affordance {
     color: rgba(var(--case-color-rgb), 0.9);
 }
 
+.transform-category-custom_spelling .transform-preview {
+    color: rgba(var(--custom-spelling-color-rgb), 0.9);
+}
+
 .transform-button:hover .transform-preview {
     background-color: rgba(0, 0, 0, 0.18);
     opacity: 1;
@@ -2740,6 +2755,15 @@ button.endsequence-item:hover .endsequence-copy-affordance {
     box-shadow: 0 3px 10px rgba(var(--case-color-rgb), 0.2);
 }
 
+.transform-category-custom_spelling {
+    background: linear-gradient(to right, rgba(var(--custom-spelling-color-rgb), 0.05), var(--button-bg));
+}
+
+.transform-category-custom_spelling:hover {
+    background: linear-gradient(to right, rgba(var(--custom-spelling-color-rgb), 0.15), var(--button-hover-bg));
+    box-shadow: 0 3px 10px rgba(var(--custom-spelling-color-rgb), 0.2);
+}
+
 .transform-button:before {
     content: '';
     position: absolute;
@@ -2832,6 +2856,11 @@ button.endsequence-item:hover .endsequence-copy-affordance {
 .transform-category-case.active {
     background: linear-gradient(to right, var(--case-color), var(--case-active-end));
     box-shadow: 0 3px 12px rgba(var(--case-color-rgb), 0.4);
+}
+
+.transform-category-custom_spelling.active {
+    background: linear-gradient(to right, var(--custom-spelling-color), var(--custom-spelling-active-end));
+    box-shadow: 0 3px 12px rgba(var(--custom-spelling-color-rgb), 0.4);
 }
 
 /* Add a subtle indicator for clickable buttons */
@@ -5275,4 +5304,107 @@ html {
     .randomizer-info ul {
         margin-left: var(--spacing-md);
     }
+}
+
+/* Custom Spelling Alphabet tool */
+.spelling-alphabet-layout .sa-empty-state {
+    padding: var(--spacing-md);
+    border: 1px dashed var(--input-border);
+    border-radius: 8px;
+    color: var(--text-muted);
+}
+
+.sa-saved-list {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.sa-saved-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--spacing-md);
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    background: var(--secondary-bg);
+}
+
+.sa-saved-card h4 {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--accent-color);
+}
+
+.sa-saved-preview,
+.sa-saved-card p {
+    margin: 0 0 var(--spacing-xs);
+    color: var(--text-muted);
+}
+
+.sa-saved-card-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.sa-delete-btn {
+    color: #ef5350;
+}
+
+.sa-meta-grid {
+    margin-bottom: var(--spacing-md);
+}
+
+.sa-generate-row {
+    margin-bottom: var(--spacing-md);
+}
+
+.sa-hint {
+    margin-top: var(--spacing-sm);
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.sa-error {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: 6px;
+    border: 1px solid #ef5350;
+    background: rgba(239, 83, 80, 0.12);
+    color: #ffabab;
+}
+
+.sa-progress {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-muted);
+}
+
+.sa-letter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.sa-letter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sa-letter-label {
+    font-weight: 700;
+    color: var(--custom-spelling-color);
+}
+
+.sa-letter-field input {
+    text-transform: uppercase;
+}
+
+.sa-live-preview {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-radius: 8px;
+    background: rgba(var(--custom-spelling-color-rgb), 0.08);
+    border: 1px solid rgba(var(--custom-spelling-color-rgb), 0.25);
 }
