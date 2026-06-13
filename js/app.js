@@ -137,7 +137,59 @@ window.app = new Vue({
                 setTimeout(()=>section && section.classList.remove('shake-once','randomizer-glow'), 600);
             } catch(_) {}
         },
-        switchToTab(tabName) {
+        getValidToolIds() {
+            if (window.toolRegistry && typeof window.toolRegistry.getAll === 'function') {
+                return window.toolRegistry.getAll().map(function(tool) { return tool.id; });
+            }
+            return [];
+        },
+
+        getRouteSubState(tabName) {
+            if (tabName === 'codes' && this.codesMode === 'decode') {
+                return 'decode';
+            }
+            return '';
+        },
+
+        applyRouteSubState(route) {
+            if (!route || !route.sub) {
+                return;
+            }
+
+            if (route.tab === 'codes' && (route.sub === 'generate' || route.sub === 'decode')) {
+                this.codesMode = route.sub;
+            }
+        },
+
+        applyRouteFromHash() {
+            if (!window.TabRouting) {
+                return;
+            }
+
+            var route = window.TabRouting.parse();
+            var validIds = this.getValidToolIds();
+            var defaultTab = 'transforms';
+
+            if (!route || !route.tab) {
+                return;
+            }
+
+            if (!validIds.includes(route.tab)) {
+                this.switchToTab(defaultTab, { fromRoute: true, updateUrl: true, replaceUrl: true });
+                return;
+            }
+
+            if (route.tab !== this.activeTab) {
+                this.switchToTab(route.tab, { fromRoute: true, updateUrl: false, route: route });
+                return;
+            }
+
+            this.applyRouteSubState(route);
+        },
+
+        switchToTab(tabName, options) {
+            options = options || {};
+
             if (this.activeTab && window.toolRegistry) {
                 window.toolRegistry.deactivateTool(this.activeTab, this);
             }
@@ -148,6 +200,14 @@ window.app = new Vue({
             
             if (window.toolRegistry) {
                 window.toolRegistry.activateTool(tabName, this);
+            }
+
+            if (options.fromRoute && options.route) {
+                this.applyRouteSubState(options.route);
+            }
+
+            if (options.updateUrl !== false && !options.fromRoute && window.TabRouting) {
+                window.TabRouting.setHash(tabName, this.getRouteSubState(tabName), !!options.replaceUrl);
             }
         },
         
@@ -392,6 +452,21 @@ window.app = new Vue({
         if (window.toolRegistry && typeof window.toolRegistry.getAll === 'function') {
             this.registeredTools = window.toolRegistry.getAll();
         }
+
+        var initialRoute = window.TabRouting && window.TabRouting.parse();
+        if (initialRoute && initialRoute.tab && this.getValidToolIds().includes(initialRoute.tab)) {
+            this.applyRouteFromHash();
+        } else if (window.toolRegistry) {
+            window.toolRegistry.activateTool(this.activeTab, this);
+        }
+
+        this._onHashChange = () => {
+            if (window.TabRouting && window.TabRouting.shouldIgnoreHashChange()) {
+                return;
+            }
+            this.applyRouteFromHash();
+        };
+        window.addEventListener('hashchange', this._onHashChange);
         
         this.$nextTick(() => {
             const closeButton = document.querySelector('#unicode-options-panel .close-button');
@@ -508,6 +583,11 @@ window.app = new Vue({
     },
     
     beforeDestroy() {
+        if (this._onHashChange) {
+            window.removeEventListener('hashchange', this._onHashChange);
+            this._onHashChange = null;
+        }
+
         if (this._emojiGridInitializer) {
             clearInterval(this._emojiGridInitializer);
             this._emojiGridInitializer = null;

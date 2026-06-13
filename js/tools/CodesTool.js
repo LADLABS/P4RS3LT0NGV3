@@ -241,8 +241,11 @@ class CodesTool extends Tool {
 
     getVueWatchers() {
         return {
-            codesMode: function() {
+            codesMode: function(mode) {
                 this.codesError = '';
+                if (this.activeTab === 'codes' && window.TabRouting) {
+                    window.TabRouting.setHash('codes', mode === 'decode' ? 'decode' : '');
+                }
             },
             codesFormat: function() {
                 this.codesClearOutput();
