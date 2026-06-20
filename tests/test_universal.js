@@ -468,11 +468,6 @@ const limitations = {
         acceptPartial: true,
         normalize: { stripNonLetters: true, stripWhitespace: true }
     },
-    'n7ax': {
-        issues: 'Requires key, only encodes A-Z, removes spaces and punctuation',
-        acceptPartial: true,
-        normalize: { stripNonLetters: true, stripWhitespace: true }
-    },
     'adfgvx': {
         issues: 'Only encodes A-Z and 0-9, removes spaces and punctuation',
         acceptPartial: true,
