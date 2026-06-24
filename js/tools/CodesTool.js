@@ -52,7 +52,10 @@ class CodesTool extends Tool {
                 }
                 if (this.codesFormat === 'ean13') {
                     var digits = text.replace(/\D/g, '');
-                    if (digits.length !== 12 && digits.length !== 13) {
+                    if (!digits.length) {
+                        return 'EAN-13 requires digits only (12 or 13 digits). Letters and symbols are not valid.';
+                    }
+                    if (digits.length < 12 || digits.length > 13) {
                         return 'EAN-13 requires 12 or 13 digits (check digit is calculated automatically for 12).';
                     }
                 }
@@ -64,23 +67,34 @@ class CodesTool extends Tool {
             codesClearOutput: function() {
                 this.codesOutputUrl = '';
                 this.codesOutputSvg = '';
+            },
+            codesResetGenerate: function() {
+                this.codesClearOutput();
                 this.codesError = '';
             },
             codesGenerate: function() {
                 var validationError = this.codesValidateGenerateInput();
                 if (validationError) {
-                    this.codesError = validationError;
                     this.codesClearOutput();
+                    this.codesError = validationError;
                     return;
                 }
 
                 this.codesError = '';
-                this.codesOutputUrl = '';
-                this.codesOutputSvg = '';
+                this.codesClearOutput();
 
                 var text = String(this.codesInput || '').trim();
                 if (this.codesFormat === 'ean13') {
-                    text = text.replace(/\D/g, '');
+                    if (typeof Ean13Utils === 'undefined' || typeof Ean13Utils.normalize !== 'function') {
+                        this.codesError = 'EAN-13 helpers not loaded. Rebuild the app (npm run build).';
+                        return;
+                    }
+                    var ean13 = Ean13Utils.normalize(text);
+                    if (!ean13.ok) {
+                        this.codesError = ean13.error;
+                        return;
+                    }
+                    text = ean13.value;
                 }
                 if (this.codesFormat === 'code39') {
                     text = text.toUpperCase();
@@ -136,6 +150,60 @@ class CodesTool extends Tool {
                 } catch (err) {
                     this.codesError = (err && err.message) || 'Failed to generate barcode.';
                 }
+            },
+            codesRasterizeToPng: function(imageUrl) {
+                return new Promise(function(resolve, reject) {
+                    var img = new Image();
+                    img.onload = function() {
+                        var canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/png'));
+                    };
+                    img.onerror = function() {
+                        reject(new Error('Failed to render barcode image.'));
+                    };
+                    img.src = imageUrl;
+                });
+            },
+            codesCopyImage: function() {
+                var self = this;
+                if (!this.codesOutputUrl) {
+                    return;
+                }
+                if (!navigator.clipboard || typeof navigator.clipboard.write !== 'function') {
+                    this.codesError = 'Image copy is not supported in this browser.';
+                    return;
+                }
+
+                var blobPromise;
+                if (this.codesOutputUrl.indexOf('data:image/png') === 0) {
+                    blobPromise = fetch(this.codesOutputUrl).then(function(response) {
+                        return response.blob();
+                    });
+                } else {
+                    blobPromise = this.codesRasterizeToPng(this.codesOutputUrl).then(function(pngUrl) {
+                        return fetch(pngUrl).then(function(response) {
+                            return response.blob();
+                        });
+                    });
+                }
+
+                blobPromise.then(function(blob) {
+                    return navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]);
+                }).then(function() {
+                    if (typeof self.showNotification === 'function') {
+                        self.showNotification('Image copied to clipboard', 'success', 'fas fa-copy');
+                    }
+                }).catch(function(err) {
+                    self.codesError = (err && err.message) || 'Failed to copy image to clipboard.';
+                });
             },
             codesDownload: function() {
                 if (!this.codesOutputUrl) {
@@ -248,7 +316,7 @@ class CodesTool extends Tool {
                 }
             },
             codesFormat: function() {
-                this.codesClearOutput();
+                this.codesResetGenerate();
             }
         };
     }
