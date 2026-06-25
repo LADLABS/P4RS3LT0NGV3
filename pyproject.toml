@@ -15,7 +15,8 @@ p4rs3lt0ngv3-cli = "p4rs3lt0ngv3_cli.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.5",
+    "pytest>=9.0.3",
+    "pygments>=2.20.0",
 ]
 
 [tool.hatch.build.targets.wheel]

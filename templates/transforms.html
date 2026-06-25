@@ -57,23 +57,56 @@
                     </div>
 
                     <div class="transform-section">
-                        <div class="transform-category-legend">
-                            <div class="legend-title">Categories:</div>
-                            <div>
-                                <div 
-                                    v-for="category in legendCategories" 
-                                    :key="category"
-                                    :class="'legend-item transform-category-' + category" 
-                                    :data-target="'category-' + category"
+                        <div class="transform-filter-bar">
+                            <div class="transform-search-wrap">
+                                <i class="fas fa-search transform-search-icon" aria-hidden="true"></i>
+                                <input
+                                    type="search"
+                                    v-model="transformSearchQuery"
+                                    placeholder="Search transforms..."
+                                    aria-label="Search transforms"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                />
+                                <button
+                                    v-if="transformSearchActive() || transformCategoryFilter"
+                                    type="button"
+                                    class="transform-filter-clear"
+                                    @click="clearTransformFilters"
+                                    title="Clear filters"
+                                    aria-label="Clear filters"
                                 >
-                                    {{ category }}
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="transform-category-filters">
+                                <span class="transform-filter-label">Category</span>
+                                <div class="transform-category-chips" role="group" aria-label="Filter by category">
+                                    <button
+                                        type="button"
+                                        class="category-chip category-chip-all"
+                                        :class="{ 'active-filter': !transformCategoryFilter }"
+                                        @click="transformCategoryFilter = ''"
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        v-for="category in legendCategories"
+                                        :key="category"
+                                        type="button"
+                                        :class="'category-chip transform-category-' + category"
+                                        :class="{ 'active-filter': transformCategoryFilter === category }"
+                                        @click="toggleCategoryFilter(category)"
+                                    >
+                                        {{ formatCategoryLabel(category) }}
+                                    </button>
                                 </div>
                             </div>
                         </div>
                         <div class="transform-categories">
                             <!-- Favorites Section -->
                             <div 
-                                v-if="showFavorites && getFavoriteDisplayItems().length > 0"
+                                v-if="favoritesSectionVisible()"
                                 id="category-favorites"
                                 class="transform-category-section favorites-section"
                             >
@@ -81,7 +114,7 @@
                                     <i class="fas fa-star"></i> Favorites
                                 </h4>
                                 <div class="transform-buttons">
-                                    <template v-for="item in getFavoriteDisplayItems()" :key="item.key">
+                                    <template v-for="item in getFilteredFavoriteDisplayItems()" :key="item.key">
                                         <div v-if="item.type === 'transform'" class="transform-button-group">
                                             <button 
                                                 @click="applyTransform(item.transform, $event)"
@@ -89,7 +122,7 @@
                                                 :class="{ active: activeTransform === item.transform }"
                                                 :title="'Click to transform and copy: ' + item.transform.name"
                                             >
-                                                {{ item.transform.name }}
+                                                <span class="transform-button-name">{{ item.transform.name }}</span>
                                                 <small class="transform-preview" v-if="transformInput">
                                                     {{ item.transform.preview(transformInput.slice(0, 10), getMergedOptionsForTransform(item.transform.name)) }}
                                                 </small>
@@ -106,16 +139,33 @@
                                                     :title="isFavorite(item.transform.name) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <button
+                                                    v-if="transformHasOptionsUI(item.transform)"
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-options"
+                                                    @click.stop="openTransformOptions(item.transform, $event)"
+                                                    :aria-label="'Options for ' + item.transform.name"
+                                                >Options</button>
+                                                <span v-else class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isFavorite(item.transform.name) }"
+                                                    @click.stop="toggleFavorite(item.transform.name, $event)"
+                                                    :aria-pressed="isFavorite(item.transform.name) ? 'true' : 'false'"
+                                                >{{ isFavorite(item.transform.name) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                         <div v-else-if="item.type === 'translate'" class="transform-button-group">
                                             <button
                                                 type="button"
-                                                class="transform-button transform-category-ancient"
+                                                class="transform-button transform-category-translate"
                                                 @click="translateTo(item.langName)"
                                                 :disabled="translateLoading"
                                                 :title="'Translate to ' + item.langName"
                                             >
-                                                {{ item.langName }}
+                                                <span class="transform-button-name">{{ item.langName }}</span>
                                                 <small class="transform-preview" v-if="transformInput">
                                                     {{ transformInput.slice(0, 10) }}
                                                 </small>
@@ -126,6 +176,16 @@
                                                     :title="isTranslateFavorite(item.langName, item.custom) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <span class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isTranslateFavorite(item.langName, item.custom) }"
+                                                    @click.stop="toggleTranslateFavorite(item.langName, item.custom, $event)"
+                                                    :aria-pressed="isTranslateFavorite(item.langName, item.custom) ? 'true' : 'false'"
+                                                >{{ isTranslateFavorite(item.langName, item.custom) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
@@ -133,7 +193,7 @@
                             
                             <!-- Last Used Section -->
                             <div 
-                                v-if="showLastUsed && getLastUsedDisplayItems().length > 0"
+                                v-if="lastUsedSectionVisible()"
                                 id="category-last-used"
                                 class="transform-category-section last-used-section"
                             >
@@ -141,7 +201,7 @@
                                     <i class="fas fa-clock"></i> Last Used
                                 </h4>
                                 <div class="transform-buttons">
-                                    <template v-for="item in getLastUsedDisplayItems()" :key="item.key">
+                                    <template v-for="item in getFilteredLastUsedDisplayItems()" :key="item.key">
                                         <div v-if="item.type === 'transform'" class="transform-button-group">
                                             <button 
                                                 @click="applyTransform(item.transform, $event)"
@@ -149,7 +209,7 @@
                                                 :class="{ active: activeTransform === item.transform }"
                                                 :title="'Click to transform and copy: ' + item.transform.name"
                                             >
-                                                {{ item.transform.name }}
+                                                <span class="transform-button-name">{{ item.transform.name }}</span>
                                                 <small class="transform-preview" v-if="transformInput">
                                                     {{ item.transform.preview(transformInput.slice(0, 10), getMergedOptionsForTransform(item.transform.name)) }}
                                                 </small>
@@ -166,16 +226,33 @@
                                                     :title="isFavorite(item.transform.name) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <button
+                                                    v-if="transformHasOptionsUI(item.transform)"
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-options"
+                                                    @click.stop="openTransformOptions(item.transform, $event)"
+                                                    :aria-label="'Options for ' + item.transform.name"
+                                                >Options</button>
+                                                <span v-else class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isFavorite(item.transform.name) }"
+                                                    @click.stop="toggleFavorite(item.transform.name, $event)"
+                                                    :aria-pressed="isFavorite(item.transform.name) ? 'true' : 'false'"
+                                                >{{ isFavorite(item.transform.name) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                         <div v-else-if="item.type === 'translate'" class="transform-button-group">
                                             <button
                                                 type="button"
-                                                class="transform-button transform-category-ancient"
+                                                class="transform-button transform-category-translate"
                                                 @click="translateTo(item.langName)"
                                                 :disabled="translateLoading"
                                                 :title="'Translate to ' + item.langName"
                                             >
-                                                {{ item.langName }}
+                                                <span class="transform-button-name">{{ item.langName }}</span>
                                                 <small class="transform-preview" v-if="transformInput">
                                                     {{ transformInput.slice(0, 10) }}
                                                 </small>
@@ -186,39 +263,48 @@
                                                     :title="isTranslateFavorite(item.langName, item.custom) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <span class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isTranslateFavorite(item.langName, item.custom) }"
+                                                    @click.stop="toggleTranslateFavorite(item.langName, item.custom, $event)"
+                                                    :aria-pressed="isTranslateFavorite(item.langName, item.custom) ? 'true' : 'false'"
+                                                >{{ isTranslateFavorite(item.langName, item.custom) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
                             </div>
-                            
-                            <template v-for="(category, categoryIndex) in categories" :key="category">
-                                <!-- AI Translation Section — renders above "ancient" -->
-                                <div v-if="category === 'ancient'" id="category-translate" class="transform-category-section translate-inline-section">
-                                    <h4 class="category-title transform-category-translate">
-                                        <i class="fas fa-language"></i> Translation (AI)
-                                        <small class="translate-powered-by">TranslateGemma</small>
-                                    </h4>
 
-                                    <div v-if="translateError" class="pc-error">
-                                        <i class="fas fa-exclamation-triangle"></i> {{ translateError }}
-                                    </div>
+                            <!-- AI Translation — pinned after Favorites / Last Used, before transform categories -->
+                            <div v-if="translateSectionVisible()" id="category-translate" class="transform-category-section translate-inline-section">
+                                <h4 class="category-title transform-category-translate">
+                                    <i class="fas fa-language"></i> Translation (AI)
+                                    <small class="translate-powered-by">TranslateGemma</small>
+                                </h4>
 
-                                    <div v-if="translateLoading" class="translate-loading">
-                                        <i class="fas fa-spinner fa-spin"></i> Translating to {{ translateActiveLang }}...
-                                    </div>
+                                <div v-if="translateError" class="pc-error">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ translateError }}
+                                </div>
 
-                                    <div class="translate-model-picker">
-                                        <select v-model="translateModel" class="translate-model-select">
-                                            <option v-for="m in translateModels" :key="m.id" :value="m.id">{{ m.name }} — {{ m.note }}</option>
-                                        </select>
-                                    </div>
+                                <div v-if="translateLoading" class="translate-loading">
+                                    <i class="fas fa-spinner fa-spin"></i> Translating to {{ translateActiveLang }}...
+                                </div>
 
-                                    <div class="translate-subsection">
-                                        <div class="translate-subsection-label"><i class="fas fa-globe"></i> Major</div>
-                                        <div class="translate-lang-grid translate-lang-grid-inline">
+                                <openrouter-model-select v-model="translateModel" label="Translation model"></openrouter-model-select>
+
+                                <div class="translate-subsection">
+                                    <div class="translate-subsection-label"><i class="fas fa-globe"></i> Major</div>
+                                    <div class="translate-lang-grid translate-lang-grid-inline">
+                                        <div
+                                            v-for="lang in translateMainLangs"
+                                            v-if="translateLangVisible(lang.name)"
+                                            :key="lang.code"
+                                            class="translate-lang-card"
+                                        >
                                             <button
-                                                v-for="lang in translateMainLangs"
-                                                :key="lang.code"
                                                 class="translate-lang-btn translate-lang-main"
                                                 @click="translateTo(lang.name)"
                                                 :disabled="translateLoading"
@@ -233,15 +319,30 @@
                                                     :title="isTranslateFavorite(lang.name, false) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <span class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isTranslateFavorite(lang.name, false) }"
+                                                    @click.stop="toggleTranslateFavorite(lang.name, false, $event)"
+                                                    :aria-pressed="isTranslateFavorite(lang.name, false) ? 'true' : 'false'"
+                                                >{{ isTranslateFavorite(lang.name, false) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div class="translate-subsection">
-                                        <div class="translate-subsection-label"><i class="fas fa-scroll"></i> Dead &amp; Exotic</div>
-                                        <div class="translate-lang-grid translate-lang-grid-inline">
+                                <div class="translate-subsection">
+                                    <div class="translate-subsection-label"><i class="fas fa-scroll"></i> Dead &amp; Exotic</div>
+                                    <div class="translate-lang-grid translate-lang-grid-inline">
+                                        <div
+                                            v-for="lang in translateExoticLangs"
+                                            v-if="translateLangVisible(lang.name)"
+                                            :key="lang.code"
+                                            class="translate-lang-card"
+                                        >
                                             <button
-                                                v-for="lang in translateExoticLangs"
-                                                :key="lang.code"
                                                 class="translate-lang-btn translate-lang-exotic"
                                                 @click="translateTo(lang.name)"
                                                 :disabled="translateLoading"
@@ -256,37 +357,52 @@
                                                     :title="isTranslateFavorite(lang.name, false) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <span class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isTranslateFavorite(lang.name, false) }"
+                                                    @click.stop="toggleTranslateFavorite(lang.name, false, $event)"
+                                                    :aria-pressed="isTranslateFavorite(lang.name, false) ? 'true' : 'false'"
+                                                >{{ isTranslateFavorite(lang.name, false) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div class="translate-subsection">
-                                        <button
-                                            type="button"
-                                            class="translate-subsection-label translate-custom-label-btn"
-                                            @click="translateAddingLang = !translateAddingLang"
-                                            title="Add a language"
-                                        >
-                                            <i class="fas fa-plus-circle"></i>
-                                            <span>Custom</span>
-                                            <span class="translate-custom-toggle-end" aria-hidden="true">
-                                                <i :class="translateAddingLang ? 'fas fa-minus' : 'fas fa-plus'"></i>
-                                            </span>
+                                <div class="translate-subsection">
+                                    <button
+                                        type="button"
+                                        class="translate-subsection-label translate-custom-label-btn"
+                                        @click="translateAddingLang = !translateAddingLang"
+                                        title="Add a language"
+                                    >
+                                        <i class="fas fa-plus-circle"></i>
+                                        <span>Custom</span>
+                                        <span class="translate-custom-toggle-end" aria-hidden="true">
+                                            <i :class="translateAddingLang ? 'fas fa-minus' : 'fas fa-plus'"></i>
+                                        </span>
+                                    </button>
+                                    <div v-if="translateAddingLang" class="translate-add-form">
+                                        <input
+                                            type="text"
+                                            v-model="translateNewLangName"
+                                            placeholder="e.g., Tagalog, Esperanto, Nahuatl..."
+                                            @keyup.enter="translateAddCustomLang"
+                                        />
+                                        <button class="translate-add-btn" @click="translateAddCustomLang" :disabled="!translateNewLangName.trim()">
+                                            <i class="fas fa-plus"></i> Add
                                         </button>
-                                        <div v-if="translateAddingLang" class="translate-add-form">
-                                            <input
-                                                type="text"
-                                                v-model="translateNewLangName"
-                                                placeholder="e.g., Tagalog, Esperanto, Nahuatl..."
-                                                @keyup.enter="translateAddCustomLang"
-                                            />
-                                            <button class="translate-add-btn" @click="translateAddCustomLang" :disabled="!translateNewLangName.trim()">
-                                                <i class="fas fa-plus"></i> Add
-                                            </button>
-                                        </div>
-                                        <div class="translate-lang-grid translate-lang-grid-inline" v-if="translateCustomLangs.length">
+                                    </div>
+                                    <div class="translate-lang-grid translate-lang-grid-inline" v-if="translateCustomLangs.length">
+                                        <div
+                                            v-for="(lang, idx) in translateCustomLangs"
+                                            v-if="translateLangVisible(lang.name)"
+                                            :key="'custom-'+idx"
+                                            class="translate-lang-card"
+                                        >
                                             <button
-                                                v-for="(lang, idx) in translateCustomLangs"
-                                                :key="'custom-'+idx"
                                                 class="translate-lang-btn translate-lang-custom"
                                                 @click="translateTo(lang.name)"
                                                 :disabled="translateLoading"
@@ -302,16 +418,31 @@
                                                     :title="isTranslateFavorite(lang.name, true) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
-                                        </div>
-                                        <div v-if="!translateCustomLangs.length && !translateAddingLang" class="translate-empty-custom">
-                                            <small>Click <strong>Custom</strong> above to add any language.</small>
+                                            <div class="transform-card-actions">
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action translate-lang-action-remove"
+                                                    @click.stop="translateRemoveCustomLang(idx)"
+                                                >Remove</button>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isTranslateFavorite(lang.name, true) }"
+                                                    @click.stop="toggleTranslateFavorite(lang.name, true, $event)"
+                                                    :aria-pressed="isTranslateFavorite(lang.name, true) ? 'true' : 'false'"
+                                                >{{ isTranslateFavorite(lang.name, true) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div v-if="!translateCustomLangs.length && !translateAddingLang" class="translate-empty-custom">
+                                        <small>Click <strong>Custom</strong> above to add any language.</small>
+                                    </div>
                                 </div>
-
-                                <!-- Special handling for randomizer category -->
+                            </div>
+                            
+                            <template v-for="(category, categoryIndex) in categories" :key="category">
                                 <div 
-                                    v-if="isSpecialCategory(category)"
+                                    v-if="isSpecialCategory(category) && categorySectionVisible(category)"
                                     :id="'category-' + category" 
                                     :class="'transform-category-section randomizer-special'"
                                 >
@@ -321,7 +452,7 @@
                                     </p>
                                     <div class="chaos-overlay" aria-hidden="true"></div>
                                     <div class="transform-buttons">
-                                        <div v-for="transform in getTransformsByCategory(category)" :key="transform.name" class="transform-button-group">
+                                        <div v-for="transform in getFilteredTransformsByCategory(category)" :key="getTransformKey(transform)" class="transform-button-group">
                                             <button 
                                                 @click="applyTransform(transform, $event)"
                                                 :class="'transform-button transform-category-' + category + ' randomizer-button'"
@@ -339,13 +470,23 @@
                                                     :title="isFavorite(transform.name) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <span class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isFavorite(transform.name) }"
+                                                    @click.stop="toggleFavorite(transform.name, $event)"
+                                                    :aria-pressed="isFavorite(transform.name) ? 'true' : 'false'"
+                                                >{{ isFavorite(transform.name) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="randomizer-info">
                                         <h5>🎮 How it works:</h5>
                                         <ul>
                                             <li>🔀 Each word gets a <strong>random transform</strong></li>
-                                            <li>🎯 Mixes <strong>fantasy</strong>, <strong>ancient</strong>, and <strong>modern</strong> encodings</li>
+                                            <li>🎯 Mixes <strong>symbol</strong>, <strong>unicode</strong>, and <strong>modern</strong> encodings</li>
                                             <li>📝 Preserves punctuation and spacing</li>
                                             <li>🔍 Check console for transform mapping details</li>
                                         </ul>
@@ -355,12 +496,12 @@
                                 
                                 <!-- Standard category -->
                                 <div 
-                                    v-else
+                                    v-else-if="categorySectionVisible(category)"
                                     :id="'category-' + category" 
                                     :class="'transform-category-section'"
                                 >
                                     <h4 :class="'category-title transform-category-' + category">
-                                        {{ category }}
+                                        {{ formatCategoryLabel(category) }}
                                         <span class="category-order-controls">
                                             <button 
                                                 v-if="categoryIndex > 0"
@@ -381,14 +522,14 @@
                                         </span>
                                     </h4>
                                     <div class="transform-buttons">
-                                        <div v-for="transform in getTransformsByCategory(category)" :key="transform.name" class="transform-button-group">
+                                        <div v-for="transform in getFilteredTransformsByCategory(category)" :key="getTransformKey(transform)" class="transform-button-group">
                                             <button 
                                                 @click="applyTransform(transform, $event)"
                                                 :class="'transform-button transform-category-' + category"
                                                 :class="{ active: activeTransform === transform }"
                                                 :title="'Click to transform and copy: ' + transform.name"
                                             >
-                                                {{ transform.name }}
+                                                <span class="transform-button-name">{{ transform.name }}</span>
                                                 <small class="transform-preview" v-if="transformInput">
                                                     {{ transform.preview(transformInput.slice(0, 10), getMergedOptionsForTransform(transform.name)) }}
                                                 </small>
@@ -405,10 +546,33 @@
                                                     :title="isFavorite(transform.name) ? 'Remove from favorites' : 'Add to favorites'"
                                                 ></i>
                                             </button>
+                                            <div class="transform-card-actions">
+                                                <button
+                                                    v-if="transformHasOptionsUI(transform)"
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-options"
+                                                    @click.stop="openTransformOptions(transform, $event)"
+                                                    :aria-label="'Options for ' + transform.name"
+                                                >Options</button>
+                                                <span v-else class="transform-card-action-slot" aria-hidden="true"></span>
+                                                <button
+                                                    type="button"
+                                                    class="transform-card-action transform-card-action-favorite"
+                                                    :class="{ 'is-favorited': isFavorite(transform.name) }"
+                                                    @click.stop="toggleFavorite(transform.name, $event)"
+                                                    :aria-pressed="isFavorite(transform.name) ? 'true' : 'false'"
+                                                >{{ isFavorite(transform.name) ? 'Favorited' : 'Favorite' }}</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </template>
+
+                            <div v-if="transformListHasNoMatches()" class="transform-filter-empty">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <p>No transforms match your filters.</p>
+                                <button type="button" class="btn btn-secondary" @click="clearTransformFilters">Clear filters</button>
+                            </div>
                         </div>
                     </div>
 
@@ -420,7 +584,7 @@
                                 <small v-if="activeTransform">({{ activeTransform.name }})</small>
                             </h4>
                         </div>
-                        <div class="output-container">
+                        <div class="output-container" :class="{ 'signwriting-output': activeTransform && activeTransform.category === 'signwriting' }">
                             <textarea 
                                 readonly 
                                 v-model="transformOutput"

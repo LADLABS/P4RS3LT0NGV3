@@ -181,6 +181,9 @@ if (typeof AntiClassifierTool !== 'undefined') {
 if (typeof BijectionTool !== 'undefined') {
     window.toolRegistry.register(new BijectionTool());
 }
+if (typeof CodesTool !== 'undefined') {
+    window.toolRegistry.register(new CodesTool());
+}
 if (typeof DecodeTool !== 'undefined') {
     window.toolRegistry.register(new DecodeTool());
 }
@@ -195,6 +198,9 @@ if (typeof MutationTool !== 'undefined') {
 }
 if (typeof PromptCraftTool !== 'undefined') {
     window.toolRegistry.register(new PromptCraftTool());
+}
+if (typeof SpellingAlphabetTool !== 'undefined') {
+    window.toolRegistry.register(new SpellingAlphabetTool());
 }
 if (typeof SplitterTool !== 'undefined') {
     window.toolRegistry.register(new SplitterTool());

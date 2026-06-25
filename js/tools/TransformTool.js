@@ -13,27 +13,7 @@ class TransformTool extends Tool {
     }
     
     getVueData() {
-        const transforms = (window.transforms && Object.keys(window.transforms).length > 0)
-            ? Object.entries(window.transforms)
-                .filter(([key, transform]) => {
-                    // Filter out transforms that don't have required properties
-                    if (!transform || !transform.name || !transform.func) {
-                        console.warn(`Transform "${key}" is missing required properties (name or func)`, transform);
-                        return false;
-                    }
-                    return true;
-                })
-                .map(([key, transform]) => ({
-                    name: transform.name,
-                    func: transform.func.bind(transform),
-                    preview: transform.preview ? transform.preview.bind(transform) : function() { return '[preview]'; },
-                    reverse: transform.reverse ? transform.reverse.bind(transform) : null,
-                    category: transform.category || 'special',
-                    configurableOptions: transform.configurableOptions || [],
-                    hasConfigurableOptions: Array.isArray(transform.configurableOptions) && transform.configurableOptions.length > 0,
-                    inputKind: transform.inputKind === 'text' ? 'text' : 'textarea'
-                }))
-            : [];
+        const transforms = this.buildTransformsFromWindow();
         
         const categorySet = new Set();
         transforms.forEach(transform => {
@@ -74,8 +54,61 @@ class TransformTool extends Tool {
             transformOptionPrefs: this.loadTransformOptionPrefs(),
             transformOptionsModalOpen: false,
             transformOptionsModalTransform: null,
-            transformOptionsDraft: {}
+            transformOptionsDraft: {},
+            transformSearchQuery: '',
+            transformCategoryFilter: ''
         };
+    }
+
+    buildTransformsFromWindow() {
+        if (typeof window !== 'undefined' && typeof window.syncCustomSpellingAlphabets === 'function') {
+            window.syncCustomSpellingAlphabets();
+        }
+
+        if (!window.transforms || Object.keys(window.transforms).length === 0) {
+            return [];
+        }
+
+        return Object.entries(window.transforms)
+            .filter(([key, transform]) => {
+                if (!transform || !transform.name || !transform.func) {
+                    console.warn(`Transform "${key}" is missing required properties (name or func)`, transform);
+                    return false;
+                }
+                return true;
+            })
+            .map(([key, transform]) => ({
+                transformKey: key,
+                customSpellingId: transform.customSpellingId || null,
+                name: transform.name,
+                func: transform.func.bind(transform),
+                preview: transform.preview ? transform.preview.bind(transform) : function() { return '[preview]'; },
+                reverse: transform.reverse ? transform.reverse.bind(transform) : null,
+                category: transform.category || 'special',
+                configurableOptions: transform.configurableOptions || [],
+                hasConfigurableOptions: Array.isArray(transform.configurableOptions) && transform.configurableOptions.length > 0,
+                inputKind: transform.inputKind === 'text' ? 'text' : 'textarea'
+            }));
+    }
+
+    rebuildTransformCategories(transforms) {
+        const categorySet = new Set();
+        transforms.forEach(transform => {
+            if (transform.category) {
+                categorySet.add(transform.category);
+            }
+        });
+
+        const allCategories = Array.from(categorySet);
+        const categoriesWithoutRandomizer = allCategories.filter(c => c !== 'randomizer');
+        const legendCategories = [...categoriesWithoutRandomizer.sort((a, b) => a.localeCompare(b)), 'randomizer'];
+
+        const savedOrder = this.loadCategoryOrder();
+        const sectionCategories = savedOrder && savedOrder.length > 0
+            ? this.mergeCategoryOrder(allCategories, savedOrder)
+            : [...legendCategories];
+
+        return { legendCategories, sectionCategories };
     }
     
     loadTransformOptionPrefs() {
@@ -219,6 +252,12 @@ class TransformTool extends Tool {
                 const transform = this.transforms.find(t => t.name === transformName);
                 return transform ? transform.category : 'special';
             },
+            getTransformKey: function(transform) {
+                if (!transform) {
+                    return '';
+                }
+                return transform.customSpellingId || transform.transformKey || transform.name;
+            },
             /**
              * True if this transform should show the options gear (uses saved prefs + defaults in decoder).
              * Falls back to window.transforms when the Vue copy omits configurableOptions.
@@ -357,6 +396,104 @@ class TransformTool extends Tool {
                 return list.filter(t =>
                     !this.favorites.some(f => typeof f === 'string' && f === t.name)
                 );
+            },
+            formatCategoryLabel: function(category) {
+                return String(category || '').replace(/_/g, ' ');
+            },
+            toggleCategoryFilter: function(category) {
+                this.transformCategoryFilter = this.transformCategoryFilter === category ? '' : category;
+            },
+            clearTransformFilters: function() {
+                this.transformSearchQuery = '';
+                this.transformCategoryFilter = '';
+            },
+            transformSearchActive: function() {
+                return String(this.transformSearchQuery || '').trim().length > 0;
+            },
+            transformMatchesSearchText: function(text) {
+                const query = String(this.transformSearchQuery || '').trim().toLowerCase();
+                if (!query) {
+                    return true;
+                }
+                return String(text || '').toLowerCase().indexOf(query) !== -1;
+            },
+            transformMatchesSearch: function(transform) {
+                return this.transformMatchesSearchText(transform && transform.name);
+            },
+            getFilteredTransformsByCategory: function(category) {
+                const list = this.getTransformsByCategory(category);
+                if (!this.transformSearchActive()) {
+                    return list;
+                }
+                return list.filter(t => this.transformMatchesSearch(t));
+            },
+            categorySectionVisible: function(category) {
+                if (this.transformCategoryFilter && this.transformCategoryFilter !== category) {
+                    return false;
+                }
+                return this.getFilteredTransformsByCategory(category).length > 0;
+            },
+            displayItemMatchesFilters: function(item) {
+                if (!item) {
+                    return false;
+                }
+                if (this.transformCategoryFilter) {
+                    if (item.type === 'translate') {
+                        return false;
+                    }
+                    if (item.type === 'transform' && item.transform) {
+                        const category = item.transform.category || this.getDisplayCategory(item.transform.name);
+                        if (category !== this.transformCategoryFilter) {
+                            return false;
+                        }
+                    }
+                }
+                if (!this.transformSearchActive()) {
+                    return true;
+                }
+                if (item.type === 'translate') {
+                    return this.transformMatchesSearchText(item.langName);
+                }
+                if (item.type === 'transform' && item.transform) {
+                    return this.transformMatchesSearch(item.transform);
+                }
+                return true;
+            },
+            getFilteredFavoriteDisplayItems: function() {
+                return this.getFavoriteDisplayItems().filter(item => this.displayItemMatchesFilters(item));
+            },
+            getFilteredLastUsedDisplayItems: function() {
+                return this.getLastUsedDisplayItems().filter(item => this.displayItemMatchesFilters(item));
+            },
+            favoritesSectionVisible: function() {
+                return this.showFavorites && this.getFilteredFavoriteDisplayItems().length > 0;
+            },
+            lastUsedSectionVisible: function() {
+                return this.showLastUsed && this.getFilteredLastUsedDisplayItems().length > 0;
+            },
+            translateSectionVisible: function() {
+                if (this.transformCategoryFilter) {
+                    return false;
+                }
+                if (!this.transformSearchActive()) {
+                    return true;
+                }
+                const langs = (this.translateMainLangs || [])
+                    .concat(this.translateExoticLangs || [])
+                    .concat(this.translateCustomLangs || []);
+                return langs.some(lang => this.transformMatchesSearchText(lang.name));
+            },
+            translateLangVisible: function(langName) {
+                return this.transformMatchesSearchText(langName);
+            },
+            transformListHasNoMatches: function() {
+                if (!this.transformSearchActive() && !this.transformCategoryFilter) {
+                    return false;
+                }
+                if (this.favoritesSectionVisible() || this.lastUsedSectionVisible() || this.translateSectionVisible()) {
+                    return false;
+                }
+                return !this.categories.some(category => this.categorySectionVisible(category));
             },
             isSpecialCategory: function(category) {
                 return category === 'randomizer';
@@ -609,45 +746,28 @@ class TransformTool extends Tool {
                     this.transformOutput = window.EmojiUtils.joinEmojis(transformedSegments);
                 }
             },
-            initializeCategoryNavigation: function() {
-                this.$nextTick(() => {
-                    const legendItems = document.querySelectorAll('.transform-category-legend .legend-item');
-                    legendItems.forEach(item => {
-                        const newItem = item.cloneNode(true);
-                        item.parentNode.replaceChild(newItem, item);
-                    });
-                    
-                    document.querySelectorAll('.transform-category-legend .legend-item').forEach(item => {
-                        item.addEventListener('click', () => {
-                            const targetId = item.getAttribute('data-target');
-                            if (targetId) {
-                                const targetElement = document.getElementById(targetId);
-                                if (targetElement) {
-                                    document.querySelectorAll('.transform-category-legend .legend-item').forEach(li => {
-                                        li.classList.remove('active-category');
-                                    });
-                                    item.classList.add('active-category');
-                                    
-                                    const inputSection = document.querySelector('.input-section');
-                                    const inputSectionHeight = inputSection.offsetHeight;
-                                    const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
-                                    const offsetPosition = elementPosition - inputSectionHeight - 10;
-                                    
-                                    window.scrollTo({
-                                        top: offsetPosition,
-                                        behavior: 'smooth'
-                                    });
-                                    
-                                    targetElement.classList.add('highlight-section');
-                                    setTimeout(() => {
-                                        targetElement.classList.remove('highlight-section');
-                                    }, 1000);
-                                }
-                            }
-                        });
-                    });
-                });
-            }
+            refreshCustomSpellingTransforms: function() {
+                const transformTool = window.toolRegistry && window.toolRegistry.get('transforms');
+                if (!transformTool || typeof transformTool.buildTransformsFromWindow !== 'function') {
+                    return;
+                }
+
+                const previousCustomCount = (this.transforms || []).filter(function(t) {
+                    return t.category === 'custom_spelling';
+                }).length;
+
+                this.transforms = transformTool.buildTransformsFromWindow();
+                const categories = transformTool.rebuildTransformCategories(this.transforms);
+                this.legendCategories = categories.legendCategories;
+                this.categories = categories.sectionCategories;
+
+                const nextCustomCount = this.transforms.filter(function(t) {
+                    return t.category === 'custom_spelling';
+                }).length;
+                if (nextCustomCount !== previousCustomCount) {
+                    this.saveCategoryOrder(this.categories);
+                }
+            },
         };
     }
     
@@ -673,7 +793,9 @@ class TransformTool extends Tool {
     getVueLifecycle() {
         return {
             mounted() {
-                this.initializeCategoryNavigation();
+                if (typeof this.refreshCustomSpellingTransforms === 'function') {
+                    this.refreshCustomSpellingTransforms();
+                }
                 
                 // Save initial category order to localStorage if it doesn't exist
                 // This ensures consistent state for category reordering operations
@@ -690,9 +812,9 @@ class TransformTool extends Tool {
     }
     
     onActivate(vueInstance) {
-        vueInstance.$nextTick(() => {
-            vueInstance.initializeCategoryNavigation();
-        });
+        if (typeof vueInstance.refreshCustomSpellingTransforms === 'function') {
+            vueInstance.refreshCustomSpellingTransforms();
+        }
     }
 }
 

@@ -21,7 +21,9 @@ const templateFiles = [
     'tokenizer.html',
     'bijection.html',
     'splitter.html',
-    'gibberish.html'
+    'gibberish.html',
+    'spellingalphabet.html',
+    'codes.html'
 ];
 
 
@@ -52,21 +54,23 @@ if (!fs.existsSync(templatePath)) {
 }
 
 let indexContent = fs.readFileSync(templatePath, 'utf8');
+indexContent = indexContent.replace(/\r\n/g, '\n');
 
 // Find the tool-content-container
-const startMarker = '<div id="tool-content-container">';
-const endMarker = '</div>\n\n        </div>\n\n                    <!-- Copy History Panel -->';
+const startMarker = '<div id="tool-content-container"';
+const endMarker = '</div>\n            </main>';
 
 const startIndex = indexContent.indexOf(startMarker);
-const endIndex = indexContent.indexOf(endMarker);
+const startTagEnd = indexContent.indexOf('>', startIndex);
+const endIndex = indexContent.indexOf(endMarker, startTagEnd);
 
-if (startIndex === -1 || endIndex === -1) {
+if (startIndex === -1 || startTagEnd === -1 || endIndex === -1) {
     console.error('\n❌ Could not find tool content container markers');
     process.exit(1);
 }
 
 // Build the replacement content
-const before = indexContent.substring(0, startIndex + startMarker.length);
+const before = indexContent.substring(0, startTagEnd + 1);
 const after = indexContent.substring(endIndex);
 
 const replacement = `
